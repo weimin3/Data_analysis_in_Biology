@@ -1,0 +1,36 @@
+---
+title: "Data_analysis_in_Biology"
+output: html_document
+date: "2024-03-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Clear the environment
+```{r}
+rm(list = ls())
+```
+
+import datasets
+```{r}
+#read.table() 参数默认不同
+#可用‘sep =’指定分隔符类型 
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/echocardiogram.data.csv")
+
+```
+
+Show file path
+```{r}
+file.choose()
+```
+Check the dataset was imported correctly
+```{r}
+str(df) #显示数据结构，比如有多少行，多少列，每列名称和数据类型
+summary(df)#显示每列数据情况，例如：数值型数据，显示其最大，最小，分位值
+glimpse(df) #显示每列数据
+table(df$group,df$survival)#类似于生成数据透析表
+```
+
+
