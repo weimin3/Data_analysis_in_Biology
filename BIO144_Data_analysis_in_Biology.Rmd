@@ -1,0 +1,1428 @@
+---
+title: "Data_analysis_in_Biology"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-03-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cloud.r-project.org"))  # Set CRAN mirror
+
+# Install and load necessary packages
+required_packages <- c("dplyr", "skimr", "ggfortify")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+
+if(length(new_packages)) install.packages(new_packages)
+library(dplyr)
+library(tidyverse)
+library(skimr)
+library(ggfortify)
+```
+# Import dataset
+Clear the environment
+```{r}
+rm(list = ls())
+```
+
+import datasets
+```{r}
+#read.table() 参数默认不同
+#可用‘sep =’指定分隔符类型 
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/echocardiogram.data.csv")
+
+```
+
+Show file path
+```{r}
+#file.choose()
+```
+Check the dataset was imported correctly
+```{r}
+str(df) #显示数据结构，比如有多少行，多少列，每列名称和数据类型
+summary(df)#显示每列数据情况，例如：数值型数据，显示其最大，最小，分位值
+glimpse(df) #显示每列数据
+skim(df) #显示数据行*列，数据类型数量，数据分布。显示数据信息更全面，但需引入library(skimr)
+table(df$group,df$survival)#类似于生成数据透析表
+```
+
+# Basic data wrangling
+```{r}
+compensation <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/compensation.csv")
+glimpse(compensation)
+summary(compensation)
+```
+## Subsetting
+select():grabs columns
+```{r}
+select(compensation,Fruit) #选择Fruit这一列
+
+select(compensation,-Root) #除去root列的所有列
+
+```
+slice():grabs rows
+```{r}
+slice(compensation,2) #第二行
+slice(compensation,2:10) #第2:10行
+slice(compensation,c(2,3,10)) # 第2，3,10行
+```
+filter():
+```{r}
+with(compensation,Fruit > 80)
+filter(compensation,Fruit > 80)
+lo_hi_fruit <- filter(compensation,Fruit > 80 | Fruit < 20)
+lo_hi_fruit
+```
+## Transforming 
+```{r}
+head(compensation)
+compensation <- mutate(compensation,logFruit = log(Fruit))
+head(compensation)
+```
+## Sorting
+```{r}
+arrange(compensation,Fruit)
+```
+## Mini-summary and two top tips
+
+```{r}
+# Root values from Fruit > 80 subset
+select(filter(compensation, Fruit > 80),Root)
+
+compensation %>%
+  filter(Fruit > 80) %>%
+     select(Root)
+```
+## Summarization
+```{r}
+summarise(
+  group_by(compensation,Grazing),
+  meanFruit = mean(Fruit)
+)
+
+compensation %>%
+  group_by(Grazing) %>%
+    summarise(meanFruit = mean(Fruit))
+
+compensation %>%
+  group_by(Grazing) %>%
+     summarise(
+       meanFruit = mean(Fruit),
+       sdFruit = sd(Fruit)
+     )
+
+```
+# Visualizing data
+```{r}
+ggplot(compensation,aes(x=Root,y=Fruit,colour = Grazing))+ #colour/shape = Grazing 按Grazing的值进行颜色分类
+  geom_point(size = 5) + #散点图,设置点的大小
+  xlab("Root Biomass") + 
+  ylab("Fruit Production") + #x,y轴标签
+  theme_bw() #清除灰色背景
+```
+```{r}
+ggplot(compensation,aes(x=Grazing,y=Fruit))+
+  geom_boxplot()+ #箱盒图
+  geom_point(size=4,colour ="lightgrey",alpha = 0.5 )+#alpha是颜色透明度
+  xlab("Grazing treatment") +
+  ylab("Fruit Production") +
+  theme_bw()
+
+```
+```{r}
+ggplot(compensation,aes(x=Fruit))+
+  geom_histogram(bins = 10,binwidth = 15)
+```
+```{r}
+ggplot(compensation,aes(x = Fruit))+
+  geom_histogram(binwidth = 15)+
+  facet_wrap(~Grazing)
+
+ggsave("ThatCoolHistogram.png")
+```
+# Regression
+```{r}
+install.packages("ggfortify")
+rm(list = ls())
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/bodyfat.clean.txt",sep="")
+#glimpse(bodyfat)
+r.bodyfat <- lm(bodyfat~bmi,data=df)
+summary(r.bodyfat)
+library(ggfortify)
+autoplot(r.bodyfat,smooth.colour = NA)
+```
+```{r}
+rm(list = ls())
+lady <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/ladybirds_morph_colour.csv")
+glimpse(lady)
+
+totals <- lady%>%
+             group_by(Habitat,morph_colour) %>%
+               summarise(total.number = sum(number))
+
+ggplot(totals, aes(x = Habitat,y = total.number,fill = morph_colour)) +
+  geom_bar(stat = 'identity',position = 'dodge')+
+  scale_fill_manual(values = c(balck ="black",red = "red"))
+```
+```{r}
+lady.mat <- xtabs(number ~ Habitat + morph_colour,data = lady)
+lady.chi <-  chisq.test(lady.mat)
+names(lady.chi)
+```
+
+```{r}
+rm(list = ls())
+ozone <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/ozone.csv")
+#glimpse(ozone)
+ggplot(ozone,aes(x=Ozone))+
+  geom_histogram(binwidth = 15)+
+  facet_wrap(~Garden.location,ncol = 1)+
+  theme_bw()
+
+t.test(Ozone ~ Garden.location,data = ozone)
+```
+# Unit 3
+## Practical
+```{r}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+df<- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/financing_healthcare.csv")
+# glimpse(df)
+df_2013<- df %>%
+  filter(year == 2013) %>%
+  select(year,country,continent,health_exp_total,child_mort)%>%
+  drop_na()
+
+# How many countries are available for the question at hand?
+uni_countries <- df_2013 %>%
+  distinct(country) %>%
+  nrow()
+#uni_countries
+
+#he graph of health care spending on the x-axis and child mortality on the y-axis
+ggplot(df_2013,aes(x = health_exp_total,y =child_mort ))+
+  geom_point()+
+  labs(x = "health_exp_total",y = "child_mort")
+
+#Question 4:Now apply the appropriate transformation(log transformation) to the data (both variables) and make a new graph of those transformed variables.
+ggplot(df_2013,aes(x = log(health_exp_total),y =log(child_mort) ))+
+  geom_point()+
+  labs(x = "health_exp_total(log)",y = "child_mort(log)")
+
+#Question 5:What value of the raw variable does a log10 transformed value of 2.0 correspond to? 100
+ggplot(df_2013,aes(x = log10(health_exp_total),y =log10(child_mort) ))+
+  geom_point()+
+  xlim(0,5)+
+  ylim(0,4)+
+  labs(x = "health_exp_total(log10)",y = "child_mort(log10)")
+
+# Question 11:What R function do you use to get the residuals of a fitted model? resid()
+my_model <- lm(log10(child_mort) ~ log10(health_exp_total), data=df_2013)
+
+summary(my_model)
+
+residuals <- resid(my_model)
+# Question 12:What R function do you use to get the fitted values? fitted()
+fitted_values <- fitted(my_model)
+# Question 13:Make a histogram of the residuals.
+ggplot(data.frame(residuals = residuals),aes(x=residuals))+
+  geom_histogram(bins = 15)+
+  labs(title = "Histogram",
+       x = "Residuals",
+       y = "Density")
+# Question 14:Make a graph of the residuals (on the y-axis) against the fitted values (on the x-axis).
+ggplot(data.frame(residuals = residuals,fitted_values=fitted_values),aes(x=fitted_values,y=residuals))+
+  geom_point()+
+  geom_hline(yintercept = 0,linetype = 'dashed',color = 'red')+
+  labs(x = "Fitted_values",
+       y = "Residuals")
+```
+## Practical Fun with QQ-plots
+```{r}
+# Install ggfortify package if not already installed
+install.packages("ggfortify")
+
+# Load ggfortify package
+library(ggfortify)
+
+# Fit a linear model
+my_model <- lm(child_mort ~ log10(health_exp_total), data=df_2013)
+
+# Plot diagnostics plots using ggfortify
+autoplot(my_model,smooth.colour = NA,which = 1:2)
+
+```
+# Unit 04 Regression and multiple regression
+## Lecture 4
+### Regression
+- How well does the model describe the data:Correlation and $R^2$
+
+In simple linear regression, $R^2$ is the squared correlation between the independent and the dependent variable.
+在简单线性回归中，$R^2$（R平方）可以被解释为自变量（独立变量）和因变量（依赖变量）之间的相关性的平方.
+
+-- Its value lies between 0 and 1.R平方的值介于 0 和 1 之间。
+
+-- R平方接近 1 时，自变量（独立变量）可以很好地解释因变量（依赖变量）的变异性，模型的拟合效果较好。
+
+-- R平方接近 0 时，自变量（独立变量）不能很好地解释因变量（依赖变量）的变异性，模型的拟合效果较差。
+
+$R^2$ is also called the coefficient of determination or "Bestimmtheitsmass", because it measures the proportion of the reponse’s variability that is explained by the ensemble of all explanatory variables:
+
+$R^2 = SSQ^{(R)}/SSQ^{(Y)} = 1-SSQ^{E}/SSQ^{Y}$
+
+$SQQ^{Y} = SST = \sum^{n}_{i=1}(y_i - \bar{y})^2$
+
+$SQQ^{E} = SSE = \sum^n_{i=1}(y_i - \hat{y_i})^2$
+
+$SQQ^{R} = SSR = \sum^{n}_{i=1}(\hat{y_i} - \bar{y})^2$
+
+```{r}
+rm(list = ls())
+library(ggplot2)
+niter <- 1000
+pars <- matrix(NA,nrow = niter,ncol = 2)
+for(i in 1:niter){
+  x <- rnorm(100)
+  y <- 4- 2*x + rnorm(100,0,sd = 0.5)
+  pars[i,] <- lm(y~x)$coef
+}
+ggplot(data.frame(coef = pars[,1]), aes(x = coef)) +
+  geom_histogram(binwidth = 0.03, fill = "blue", color = "black", alpha = 0.7) +
+  ggtitle("Histogram of Intercept Coefficients") +
+  xlab("Intercept Coefficient") +
+  ylab("Frequency")
+
+
+ggplot(data.frame(slope = pars[,2]), aes(x = slope)) +
+  geom_histogram(binwidth = 0.03, fill = "blue", color = "black", alpha = 0.7) +
+  ggtitle("Histogram of Slope Coefficients") +
+  xlab("Slope Coefficient") +
+  ylab("Frequency")
+```
+
+
+- Are the parameter estimates compatible with some specific value (t-test)?
+```{r}
+
+rm(list = ls())
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/bodyfat.clean.txt",sep ="\t")
+model <- lm(bodyfat ~ bmi,data = df)
+coefs <- summary(model)$coef
+coefs
+beta <- coefs[2,1]
+sdbeta <- coefs[2,2]
+#计算自变量bmi的95%的置信区间的上下限
+CI <-beta + c(-1,1) * qt(0.975,241) * sdbeta
+CI
+CI1 <-confint(model,level = c(0.95))
+CI1
+
+# Interpretation: for an increase in the bmi by one index point,roughly 1.82% percentage points more bodyfat are expected.and all true values for β1 between 1.61 and 2.03 are compatible with the observed data. 
+```
+
+- What range of parameters values are compatible with the data (confidence
+intervals)?
+- What regression lines are compatible with the data (confidence band)?
+
+置信带(Confidence Band)是用来表示回归线的系数范围的，通常是在给定的置信水平（如95%或99%）下，不考虑由于随机误差引起的预测误差。
+
+
+
+预测带(Prediction Band)不仅考虑了回归线的不确定性，还考虑了由于随机误差引起的预测误差。
+
+- What are plausible values of other data (prediction band)?
+### Multiple regression
+```{r}
+model_m <- lm(bodyfat ~ bmi + age,df)
+summary(model_m)
+confint(model_m)
+```
+## Practical 3 - part2
+```{r}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+df<- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/financing_healthcare.csv")
+# glimpse(df)
+df_2013<- df %>%
+  filter(year == 2013) %>%
+  select(year,country,continent,health_exp_total,child_mort)%>%
+  drop_na()
+
+model <- lm(log10(child_mort) ~ log10(health_exp_total),df_2013)
+
+summary(model)
+
+```
+### Practical Multiple regression (milk)
+```{r}
+#Prepare your script (rm(list=ls()), load libraries).
+rm(list = ls())
+library(ggplot2)
+library(dplyr)
+library(ggfortify)
+# Read the data into R. It is the milk_rethinking.csv dataset (get it from the usual place).
+df_milk <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/milk_rethinking.csv")
+glimpse(df_milk)
+
+# Visualise the distributions of three variables we're currently interested in.
+ggplot(df_milk,aes(x=kcal.per.g))+
+  geom_histogram(binwidth =0.05)+
+  labs(x= "kcal.per.g",
+       y = "Frequency")
+
+ggplot(df_milk,aes(x=neocortex.perc))+
+  geom_histogram(binwidth =5)+
+  labs(x= "neocortex.perc",
+       y = "Frequency")
+
+ggplot(df_milk,aes(x=mass))+
+  geom_histogram(binwidth =5)+
+  labs(x= "mass",
+       y = "Frequency")
+
+
+# Compute the correlation matrix
+cor_matrix <- cor(df_milk[c("kcal.per.g", "neocortex.perc", "mass")])  # Exclude non-numeric columns if any
+
+# Print the correlation matrix
+print(cor_matrix)
+
+model <- lm(kcal.per.g ~ neocortex.perc + mass,df_milk)
+
+summary(model)
+
+autoplot(model)
+
+
+```
+
+# Unit 05 Binary/categorical explanatory variables, and interactions
+## Lectures
+```{r}
+rm(list = ls())
+df_hg <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/hg_urine_fuzzed.csv")
+glimpse(df_hg)
+
+model<- lm(log(Hg_urin) ~ smoking+amalgam+fish ,df_hg)
+autoplot(model)
+summary(model)
+
+df_hg$mother <- factor(df_hg$mother)
+
+ggplot(df_hg,aes(x = age,y = log(Hg_urin),color = mother))+
+  geom_point()+
+  geom_smooth(model='lm',aes(group = mother),formula = y~ x)+
+  scale_color_manual(values = c("pink","blue"))
+
+model_1 <- lm(log(Hg_urin) ~ mother*age+smoking+amalgam+fish,df_hg)
+summary(model_1)
+autoplot(model_1)
+
+```
+```{r}
+rm(list = ls())
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/earthworm.csv")
+glimpse(df)
+ggplot(df,aes(x = Gattung,y = log(Gewicht)))+
+  geom_boxplot()
+
+
+model <- lm(log(Gewicht)~Gattung,df)
+autoplot(model)
+
+summary(model)
+confint(model)
+anova(model)
+
+ggplot(df,aes(x=Gattung,y=log(Gewicht),color = Gattung))+
+  geom_point()+
+  scale_color_manual(values = c("pink","green","blue"))
+```
+## Exercise 5.1
+```{r}
+rm(list=ls())
+library(readr)
+df <- read_csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/MoleRatLayabouts.csv")
+#glimpse(df)
+
+table(df$caste)
+
+ggplot(df,aes(x= Mass))+
+  geom_histogram(bins = 15)+
+  theme_minimal()
+
+ggplot(df,aes(x= Energy))+
+  geom_histogram(bins = 15)+
+  theme_minimal()
+
+df <- df%>%
+  mutate(log10_mass = log10(Mass),
+         log10_energy = log10(Energy))
+
+glimpse(df)
+
+ggplot(df,aes(x=Mass,y = Energy,color = caste))+
+  geom_point()
+
+M4 <- lm(log10_energy ~ caste * log10_mass, df) 
+summary(M4)
+
+M3<- lm(log10_energy ~ caste + log10_mass, df)
+summary(M3)
+```
+
+# Unit 6: ANOVA
+
+## Lecture
+
+```{r}
+rm(list = ls())
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/earthworm.csv")
+#glimpse(df)
+
+m1 <- lm(log10(Gewicht)~Magenumf*Gattung,df)
+summary(m1)
+
+anova(m1)
+```
+## Practical
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+df <- read_csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/intertidalalgae.csv")
+glimpse(df)
+
+#Check that there really are 16 replicates per treatment combination 
+rep_count <-df%>%
+  group_by(height,herbivores) %>%
+  summarise(Count = n())
+rep_count
+
+
+#have a look at the distribution of the response variable Area_cm2
+ggplot(df,aes(x=Area_cm2)) +
+  geom_histogram(bins=15)
+
+#Have a look at the distribution of Area_cm2 for each of the four treatment combinations
+ggplot(df,aes(x=Area_cm2))+
+  geom_histogram(aes(fill = herbivores))+
+  facet_grid(~height)
+
+df <- df%>%
+  mutate(trans_Area = sqrt(Area_cm2))
+#glimpse(df)
+
+ggplot(df, aes(x = height, y =trans_Area, color = herbivores)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.2)) +
+  labs(title = "Effect of Herbivores and Height on Area_cm2",
+       x = "Height", y = "Transformed Area_cm2", color = "Herbivores") +
+  theme_minimal()
+
+
+# Calculate mean and standard deviation for each treatment combination
+summary_stats <- df %>%
+  group_by(height, herbivores) %>%
+  summarise(mean_trans_Area = mean(trans_Area, na.rm = TRUE),
+            sd_trans_Area = sd(trans_Area, na.rm = TRUE))
+
+print(summary_stats)
+
+m <- lm(trans_Area  ~ height * herbivores, df)
+
+anova(m)
+
+confint(m)
+
+summary(m)
+
+```
+
+# Unit 07 ANCOVA,short introduction to Linear Algebra
+## Lecture
+```{r}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+df_earthworms <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/earthworm.csv")
+str(df_earthworms)
+
+table(df_earthworms$Gattung,df_earthworms$Fangdatum)
+
+ggplot(df_earthworms,aes(x=Magenumf,y= log10(Gewicht),color = Gattung))+
+  geom_point()
+
+ggplot(df_earthworms,aes(x=Gattung,y=log10(Gewicht),color = Magenumf))+
+  geom_point()+
+  geom_boxplot(coef = 0, width = 0.5, outlier.shape = NA)
+
+r.lm <- lm(log(Gewicht) ~ Magenumf + Gattung,df_earthworms)
+summary(r.lm)
+
+anova(r.lm)
+
+r.lm2 <- lm(log(Gewicht) ~ Magenumf * Gattung,df_earthworms )
+summary(r.lm2)
+
+anova(r.lm2)
+```
+cholesterol
+```{r}
+rm(list = ls())
+x1 <- c(0,1,2,3,4)
+x2 <- c(4,1,0,1,4)
+Xtitle <- matrix(c(rep(1,5),x1,x2),ncol = 3)
+Xtitle
+
+t.beta <- c(10,5,-2)
+t.y <- Xtitle %*% t.beta
+t.y
+
+t.e <- rnorm(5,0,1)
+t.e
+
+t.Y <- t.y + t.e
+t.Y
+
+r.lm <- lm(t.Y ~ x1 + x2)
+summary(r.lm)$coef
+
+solve(t(Xtitle) %*% Xtitle) %*% t(Xtitle) %*% t.Y
+```
+```{r}
+A <- matrix(c(1,2,3,4,5,6),byrow = T,nrow = 2)
+B <- matrix(c(6,5,4,3,2,1),byrow = T,nrow = 2)
+A 
+```
+
+# Practical
+```{r}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+df_rug <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/rugged.csv")
+#str(df_rug)
+#Look at the distribution of the rgdppc_2000 variable -- and then create a log10 transformed version of it.
+ggplot(df_rug,aes(x=rgdppc_2000))+
+  geom_histogram()+
+  ggtitle("Distribution of rgdppc_2000")
+
+ggplot(df_rug,aes(x=log(rgdppc_2000)))+
+  geom_histogram()+
+  ggtitle("Distribution of log(rgdppc_2000)")
+
+#Create a new variable (name it cont_africa1) in which a row contains "Africa" if the country is in Africa, and "not Africa" if it isn't.
+df_rug <- df_rug %>% 
+  mutate(cont_africa1=ifelse(cont_africa == '0',"not Africa","Africa"))
+#str(df_rug)
+#table(df_rug$cont_africa1)
+
+#Which country has the lowest ruggedness, i.e. which is the flattest country?
+flattest_country <- df_rug$country[which.min(df_rug$rugged)]
+flattest_country
+#In the league table of ruggedness, where does Switzerland come?
+rank_table <- df_rug %>%
+  arrange(desc(rugged)) %>%
+  select(country,rugged)
+rank_table
+Switzerland_select <- which(rank_table$country == 'Switzerland')
+
+#How many NA values are there in the the gdp variable? (1 point)
+NA_gdp <- df_rug %>%
+  filter(is.na(df_rug$rgdppc_2000))
+NA_gdp
+
+#How many of these are countries in Africa? (1 point)
+#How many of these are countries not in Africa? (1 point)
+table(NA_gdp$cont_africa1)
+
+df_non_gdp <- df_rug %>%
+  filter(!is.na(df_rug$rgdppc_2000))
+r.lm <- lm(rgdppc_2000 ~ rugged*cont_africa1 ,df_non_gdp)
+summary(r.lm)
+
+#How does the QQ-plot of your model make you feel?
+qqnorm(residuals(r.lm))
+qqline(residuals(r.lm))
+#How does the distribution of the residuals look?
+hist(residuals(r.lm),breaks = 12,main = "distribution of the residuals",xlab = "residduals")
+```
+practical 7.4
+```{r}
+A <- matrix(c(4,2,3,1,4,6),byrow = T, nrow = 2)
+B <- matrix(c(0,3,6,-1,-1,0),byrow = T,nrow = 2)
+c <- matrix(c(4,2,1,-3),byrow = T,nrow = 2)
+x <- c(-1,2,1)
+y <- c(2,3,0)
+
+
+z <- t(x) %*%y
+z
+
+a <- 2 * A
+a
+
+b<- A + B
+b
+
+c <- A %*% t(B)
+c
+
+d <- A%*% x
+d
+
+#e <- A%*%B
+#e
+
+#f<- t(B) %*% y
+#f
+
+g <- A %*% t(A)
+g
+
+h <- t(A) %*% A
+h
+
+i <- t(x) %*% x
+i
+
+j <- x %*% t(x)
+j
+```
+
+```{r}
+A <- matrix(c(4,2,3,1,4,6),byrow = T, nrow = 2)
+B <- matrix(c(0,3,6,-1,-1,0),byrow = T,nrow = 2)
+c <- matrix(c(4,2,1,-3),byrow = T,nrow = 2)
+x <- c(-1,2,1)
+y <- c(2,3,0)
+det_C <- det(c)
+det_C
+
+det_AB <- det(A %*% t(B))
+det_AB
+
+det_xy <- det(t(x)%*% y)
+det_xy
+```
+
+# Unit 08 Variable selection
+## Lecture
+### Predictive models and Explanaroty models
+**Predictive model**: the aim is to **predict** the outcome of future subjects.Variables in the model are **covariates**.
+
+**Explanaroty model**: the aim is to **explain** y using known regressors. Ultimately, the aim is to find **causal relationship** between explanatory variables and the response. Variables in the model are **explanatory variables**.
+
+**Why is finding a model so hard?**
+
+- there is often not a "right" or a "wrong" model, but there are more and less usefull ones
+
+- Finding a model with good properties is sometimes an art
+
+**Model selection for predictive models**
+- $R^2$ is not suitbale for model selection,because it always increases when a new variable is included, it is used to find whether the model is fit the data.
+
+- The predictive ability of a model is tested by a cross-validation(CV) approach.
+
+- Approximations to CV(information-criteria):AIC,$AIC_C$,BIC
+
+- The "best" model is the one with the smallest value of the information criterion.
+### Selection Criteria
+**Information-criteria**: Find a balance between **Good model fit** and **Low model complexity**, **Reward** model with a better fit to the data and **Penalize** model with more parameters.
+
+**AIC(Akaike Information Criterion)** measures the **relative** quality of a model. 
+- $AIC = -2log(L) + 2p$ likelihood L and parameters p
+
+- The **lower** the AIC, the **better** the model.
+
+- The AIC is a trade-off between:
+  - a high likelihood L(good model fit)
+  - few parameters p(low model complexity)
+  
+** $AIC_C$ (corrected AIC)**: for low sample sizes
+
+- $AIC_C = -2log(L) + 2p* \frac{n}{n-p-1}$ a model with **n** data  points, likelihood **L** and **p** parameters
+
+- when $n/p < 40$ recommend to use $AIC_C$
+
+**BIC(Bayesian Information Criterion)**
+- $BIC = -2log(L) + p * ln(n)$ **n** data points with likelihood **L** and **p** parameters
+
+- The **lower** the BIC,the **better** the model
+
+- The only difference to AIC is the penalty for model complexity
+
+**Model selection with AIC/ $AIC_C$ / BIC**
+- **Backward selection**: 
+
+  - Start with a large/full model
+  
+  - In each step,**remove** the variable that leads to the largest improvement(smallest AIC,$AIC_C$,BIC)
+  
+  - Do this until no further improvement is possible
+
+- **Forward selection**:
+
+  - Start with a null model
+  
+  - In each step, **add** the predictor that leads to the largest improvement(smallest AIC/ $AIC_C$ /BIC)
+  
+  - Do this until no further improvement is possible
+```{r}
+library(MASS)
+library(AICcmodavg)
+
+#r.bodyfat <- lm(bodyfat ~ ., d.bodyfat)
+r.AIC <-stepAIC(r.bodyfat,direction = c(both),trace = F, AICc = T)
+AICc(r.bodyfat)
+```
+
+**Two types of explanatory models/analyses:**
+
+- **Confirmatory**
+
+  - Clear hypothesis and **a priori** selection of regressors for y
+  
+  - No variable selection
+  
+  - Allowed to interpret the results and draw quantitative conclusions
+
+- **Exploratory**
+
+  - Buid whatever model you want,but the results should only be used to generate new hypotheses, **not to draw causal conclusions** or to over-interpret effect-sizes
+  
+  - Clearly report the results as "exploratory"
+  
+
+**Model selection procedures should not be used when the aim of the analysis is explanation! why?**
+
+When model selection is carried out based on objective criteria, effect sizes will be too large, and the uncertainty too small,you end up being overly confident about effects that are too large.
+
+**NEVER perform variable selection based on p-values.why?**
+
+- A small p-value does not necessarily imply that a term is important, or vice versa
+
+- When carrying out the tests with $H_0: \beta_j = 0$ for all variables sequentially, one runs into a **multiple testing problem**
+
+- The respective tests depend crucially on the correctness of the **normality assumption**
+
+- Variables are sometimes *collinear*, which leads to more uncertainty in the estimation of the respective regression parameters, and thus to larger p-values.
+
+**How many variables can I include in a model?**
+
+- Include no more than n/10 variables in linear model,when n is the number of data points. For example, there are 156 individuals so a maximum of 15 variables can be included in the model.
+
+- Categorical variables with k levels require k-1 dummy variables. For example, if "education level" has k = 3 categories,k-1=2 parameters are used up.
+
+- Model should **not be blown up** unnecessarily,may lead to **overfitting**
+
+**Collinear**: Given a set of variables $x^1, x^2,x^3,...x^p$. if it is possible to write one of the variables as a linear combination of the others, the set of variables is said to be collinear. **Avoid including explanatory variables that are strongly correlated.**
+
+- **The Variance Inflation Factor(VIF)** is a measure of collinearity, the large VIF means large collinearity 
+
+- Function in R $vif()$
+
+**What to do against collinearity?**
+
+- Avoid it 
+
+- Don not include a variable with an unacceptably high $R_{J}^2$ OR $VIF_j$ 
+
+
+**Occam's Razor**(principle of parsimony) Systematic effects should be included in a model only if there is knowledge or convincing evidence for the need of them.
+
+## Practical
+### Abalone age
+```{r}
+remove(list = ls())
+#install.packages("MuMIn")
+library(MuMIn)
+library(MASS)
+df <- read.csv("/Users/shangyu/Documents/GitHub/Data_analysis_in_Biology/Datasets/abalone_age.csv")
+#str(df)
+#hist(df$Rings)
+options(na.action = "na.fail")
+m1 <- lm(Rings ~ ., data = df)
+AICc(m1)
+# Use dropterm() to assess the effect of removing each variable on model performance
+dropterm_results <- dropterm(m1, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+#What is the change in adjusted r-squared caused by removing the variable that was the answer to the previous question? Round to two decimal places.
+m2 <- update(m1,.~.-Length_mm)
+AICc(m2)
+dropterm_results <- dropterm(m2, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+#summary(m2)
+#summary(m1)
+m3 <- update(m2,.~.-Shell_weight_g)
+AICc(m3)
+dropterm_results <- dropterm(m3, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m4 <- update(m3,.~.-Height_mm)
+AIC(m4)
+dropterm_results <- dropterm(m4, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m5 <- update(m4,.~.-Sex)
+AICc(m5)
+dropterm_results <- dropterm(m5, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m6 <- update(m5,.~.-Viscera_weight_g)
+AICc(m6)
+dropterm_results <- dropterm(m6, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m7 <- update(m6,.~.-Diameter_mm)
+AICc(m7)
+dropterm_results <- dropterm(m7, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m8 <- update(m7,.~.-Shuck_weight_g)
+AICc(m8)
+dropterm_results <- dropterm(m8, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+m9 <- update(m8,.~.-Whole_weight_g)
+AICc(m9)
+dropterm_results <- dropterm(m9, test = "F", sorted = TRUE)
+# Print the results
+#print(dropterm_results)
+
+mol <- list(m1=m1,m2=m2,m3=m3,m4=m4,m5=m5,m6=m6,m7=m7,m8=m8,m9=m9)
+model.sel(mol)
+
+fit1 <- m1
+fit2 <- lm(Rings ~ 1, df)
+step_forward <- stepAIC(m1,direction ="forward",scope = list(upper=fit1,lower = fit2))
+step_backward <- stepAIC(m1,direction = "backward",scope = list(upper = fit1,lower = fit2))
+step_both <- stepAIC(m1,direction = "both",scope = list(upper = fit1,lower = fit2))
+mods <- list(step_forward= step_forward,step_backward=step_backward,step_both=step_both)
+model.sel(mods)
+
+
+s1 <- dredge(m1) 
+model.sel(get.models(s1,subset = delta <5 ))
+```
+
+
+### Predicting Parkings
+
+## Unit 09 Interpretation,causality,cautionary notes
+### Lecture
+
+**P-values in regression models**
+
+- In linear models, the p-value is often used as an indicator of explanatory model importance
+
+- Model selection using p-values may lead to a **model selection bias**
+
+**What is the problem with the p-value?**
+
+- Not really understand what p-value actually is. **The formal definition of the p-value** is the probability to observe a summary statistic(e.g, an average) that is at least as extreme as the one observed,given that the Null Hypothesis is correct.
+
+- The p-value is often used to classify results into "significant" and "non-significant", this is often "too crude". it is better to have a more **nuanced interpretation of the p-value**
+
+- The p-value is **not** the probability that the Null Hypothesis is true.
+
+- A large p-value(e.g., p>0.05) does not automatically imply that a variable is "umimportant." 
+
+  **Factors can xontribute to large p-value:**:
+
+  - Low sample size
+
+  - The truth is not "far" from the null hypothsis(e.g., samll effect sizes in linear models)
+
+  - Collinear explannatory variables
+
+  - Incorrect fitting(e.g. non-linear explanatory variables.)
+  
+**Should we just abolish p-values?**
+
+- Use p-values, but don't over-interpret them,**use them properly**
+  - p > 0.1, little or no evidence against the null hypothesis
+  
+  - 0.1 > p > 0.05, weak evidence
+  
+  - 0.05 > p > 0.01, moderate evidence
+  
+  - 0.01 > p > 0.001 strong evidence
+  
+  - p < 0.001 very strong evidence
+  
+  
+
+- Look at **effect sizes** and associated **confidence intervals**
+
+- Look at the **relative importance($R^2$)** of explanatory variables:p-values in regression models is based on the wish to judge which explanaroty are **relevant** in a model but low p-values do not automatically imply high relevance. altervative: relative relevance of explanatory variables that measure the proportion(%) of the responses' variability explained by each variable.  
+
+   - Relative importance gives **complementary information** to p-values,effect sizes and confidence intervals.
+   
+   - Relative importance should be understood as **a complement to standard statistical output.**
+  
+   - The **limitations** to Relative importance: 1) Rel.imp. of a variable may heavily depend on the other variables included in the model, especially when there are strongly correlated variables. 2) Hard to generalize to other,non-linear regression models.
+   
+   **Better way to calculate relative importance? the function calc.relimp()**
+   
+   - Fit the model for **all possible orderings of the explanatory variables.**
+   
+   - Record the increase in $R^2$ each time a variable is included.
+   
+   - **Average** over all orderings of the explanatory variables.
+
+- **NEVER use p-value for model selection**
+
+**Causality vs.correlation**
+
+- Regression models can only reveal associations, that is **correlations** between x and y
+
+- x is a **cause** for y written as x --> y
+
+- y (partially) causes x, that is y --> x
+
+- another variable z that influences both x and y: z --> x and z --> y, x and y covary, but there is no causal realtionship between the two.
+
+- Correlation does not imply causation
+
+- **Experimental studies** are often better studied to infer causality than observational studies.
+
+
+### Homework
+
+### Practical- Relative importance
+```{r}
+# Practical 9.1
+remove(list = ls())
+df <- read.delim("~/Library/CloudStorage/GoogleDrive-shangyu1224@gmail.com/我的云端硬盘/UZH/SEMESTER 4/BIO144 Data analyse in Biology/all_datasets_bio144/bodyfat.txt")
+#str(df)
+options(na.action = "na.fail")
+
+m1 <- lm(bodyfat ~ weight,df)
+m2 <- lm(bodyfat ~ abdomen,df)
+m3 <- lm(bodyfat ~ weight + abdomen,df)
+summary(m1)
+summary(m2)
+summary(m3)
+
+```
+```{r}
+#Practical 9.2
+library(dplyr)
+remove(list = ls())
+df <- read.delim("~/Library/CloudStorage/GoogleDrive-shangyu1224@gmail.com/我的云端硬盘/UZH/SEMESTER 4/BIO144 Data analyse in Biology/all_datasets_bio144/bodyfat.txt")
+df <- df %>%
+  mutate(weight_kg = weight * 0.45)
+m1 <- lm(bodyfat ~ abdomen + weight, df)
+m2 <- lm(bodyfat ~ abdomen + weight_kg, df)
+#model.sel(list(m1=m1,m2=m2))
+df <- df %>%
+  mutate(scaled_abdomen = scale(abdomen),scaled_weight = scale(weight))
+#str(df)
+summary(m1)
+#summary(m2)
+m3 <- lm(bodyfat ~ scaled_abdomen + scaled_weight, df)
+summary(m3)
+```
+
+## Unit 10 Modeling count data
+### Lecture
+#### Introduction
+**Explanatory variables** in regression models can be **continuous, categorical or count (non-negative integers.)**
+
+**Response variable** can also be **continuous, categorical or count (non-negative integers.)**,this lecture is about the response variable is *count*,$y_i = 0,1,2,...$
+
+
+**How do the explanatory variables influence the probability of a given count of the outcome?** 
+
+**Example: Are heavier females fitter than lighter females?**
+```{r}
+remove(list = ls())
+library(dplyr)
+library(ggplot2)
+df <- read.csv("~/Library/CloudStorage/GoogleDrive-shangyu1224@gmail.com/我的云端硬盘/UZH/SEMESTER 4/BIO144 Data analyse in Biology/all_datasets_bio144/SoaySheepFitness.csv")
+glimpse(df)
+
+m1 <- lm(fitness ~ body.size,df )
+#explore the data with a graph
+ggplot(df,aes(x=body.size,y=fitness))+
+  geom_point()+
+  geom_smooth(method = "lm",formula = y ~ x,color = "blue",se = FALSE)+
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), color = "red", se = FALSE) +
+  xlab("Body mass(kg)")+
+  ylab("Lifetime fitness")
+
+# The output represents a count, using normal linear regression is not the correct approach here 
+# What is the problem?
+# 1. the normal distribution is for continuous variables
+# 2. the normal distribution allows values < 0,count data are non-negative integer
+# 3. the normal distribution is symmetrical, counts often are not!
+# 4. The variability in count data tends to increase with higher values.
+```
+Response variable is *count*,Poisson-distributed random variable Y $Y ~ Po(\lambda)$:
+
+- E(Y)(Mean) = Var(Y)(Variance) = $\lambda$ 
+
+- The Poisson distribution Po($\lambda$) is described by one parameter: the rate
+
+
+**How can one use the Poisson distribution in a regression model?**
+
+- The Generalized Linear Model(GLM) for count data
+
+- The aim of the GLM  approach is that we can still use a *linear predictor $\eta_i$* in a form of the linear model$\eta_i = \beta_0 + \beta_1x_i^{(1)} + \beta_2x_i^{(2)} + \ldots + \beta_px_i^{(p)}$
+
+- In linear regression, $\eta_i$ is the predicted value for the mean $E(y_i) = \eta_i$ if $y_i$ is a count.
+
+- Use a link function $\log(E(y_i)) = \eta_i = \beta_0 + \beta_1x_i^{(1)} + \beta_2x_i^{(2)} + \ldots + \beta_px_i^{(p)}$ The log is called the *link function*, the advantage is the predicted fitness $E(y_i)$ is now always positive
+
+- Fit a Poisson GLM using the logarithmic link-function to perform *maximum-likelihood estimation*
+```{r}
+df.glm <- glm(fitness ~ body.size ,data = df,family = poisson(link = log))
+summary(df.glm)
+
+# a 5 kg female has expected fitness: 1.33 lambs
+result <- exp(-2.42203 + 0.54087 * 5)
+#result
+
+# anova() gives us the Analysis of Deviance table 
+anova(df.glm,test = "Chisq")
+
+```
+- p < 0.001 for $\hat{\beta_1}$ indicates very strong evidence for a positive effect of female weight on reproductive success
+
+- $\hat{\beta_1}$ and $\hat{\beta_1}$ are approximately *normally distributed* around the true values: $\hat{\beta} ~ N(\beta,\alpha^2\beta)$, Thus a 95% CI can be approximated by the usual $\hat{\beta}+(-) 2 * \hat{\alpha}\beta)$
+
+
+Analysis of Deviance Table  **Maximum Likelihood**
+
+Model: poisson **Family**, link: log
+
+Response: fitness
+
+Terms added sequentially (first to last)
+
+
+          Df Deviance Resid. Df Resid. Dev
+NULL                         49     85.081 **SS_total the total deviance is the so-called NULL deviance 85.081. it is analogue to the total variability of the data in linear regression **
+body.size  1   37.041**SSmodel,is explained by bodysize**        48     48.040 **SS_residual**
+
+**Overdispersion** means **extra variability**, why could this be a problem?
+
+- because of mean = variance,the variance of the Poisson distribution increases with the mean
+
+- Detecting overdispersion: Residual deviance $48.040 \approx df 48$, therefore the model is fine, **if residual devirance >> df : overdispersion**
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 85.081  on 49  degrees of freedom
+Residual deviance: 48.040  on 48  degrees of freedom
+AIC: 210.85
+
+- what is the problem with overdispersion?
+
+**When there is unacccounted overdispersion,reported p-values are too small**
+
+ - Possible solutions:
+ 
+  - Use the *quasipoisson-* instead of poisson-family.This estimates the variance parameter(denoted as *dispersion parameter*) from the data
+```{r}
+m <- glm(number ~ treat + age, data = polyps, family = "quasipoisson") ##family = "quasipoisson"
+```
+  - Use a *negative binomial regression(the glm.nb() function in the MASS package)*
+
+**Underdispersion**
+
+- Can it happen that the observations are **less variable** than expected? 
+
+  - Yes, especially when observations are dependent
+  
+  - can detect it by checking if **Residual deviance < df**, in that case, p-values may be too large, that is, the results are *overly conservative*
+  
+  - The *quasipoisson regression* is a pragmatic solution in that scenario as well.
+  
+**Zero-inflation**: a special type of overdispersion may be caused by an *overrepresentation of zeros* in the obervations
+
+**A note on interpretation and model selection**
+
+- Caution with model selection
+
+- Interpretation of p-values
+
+- Reproducibility aspects
+
+- *Interpret the coefficients by back-transforming* to the original scale
+
+### Practical- Abalone age
+```{r}
+remove(list = ls())
+df <- read.csv("~/Library/CloudStorage/GoogleDrive-shangyu1224@gmail.com/我的云端硬盘/UZH/SEMESTER 4/BIO144 Data analyse in Biology/all_datasets_bio144/abalone_age.csv")
+#glimpse(df)
+m1 <- lm(Rings ~ .,df)
+#AIC(m1)
+dropterm(m1, test = "F", sorted = TRUE)
+m2 <- update(m1,.~.-Length_mm)
+#AIC(m2)
+dropterm(m2, test = "F", sorted = TRUE)
+m3 <- update(m2,.~.-Shell_weight_g)
+#AIC(m3)
+dropterm(m3, test = "F", sorted = TRUE)
+m4 <- update(m3,.~.-Height_mm)
+#AIC(m4)
+dropterm(m4, test = "F", sorted = TRUE)
+m5 <- update(m4,.~.-Sex)
+#AIC(m5)
+dropterm(m5, test = "F", sorted = TRUE)
+m6 <- update(m5,.~.-Viscera_weight_g)
+#AIC(m6)
+dropterm(m6, test = "F", sorted = TRUE)
+m7 <- update(m6,.~.-Diameter_mm )
+#AIC(m7)
+dropterm(m7, test = "F", sorted = TRUE)
+m8 <- update(m7,.~.-Shuck_weight_g)
+#AIC(m8)
+dropterm(m8, test = "F", sorted = TRUE)
+m9 <- update(m8,.~.-Whole_weight_g )
+#AIC(m9)
+dropterm(m9, test = "F", sorted = TRUE)
+mods1 <- list(m1=m1,m2=m2,m3=m3,m4=m4,m5=m5,m6=m6,m7=m7,m8=m8,m9=m9)
+
+
+
+
+gm1 <- glm(Rings ~ .,df,family = "poisson")
+#AIC(gm1)
+dropterm(gm1, test = "Chisq", sorted = TRUE)
+gm2 <- update(gm1,.~.-Length_mm)
+dropterm(gm2, test = "Chisq", sorted = TRUE)
+gm3 <- update(gm2,.~.-Shell_weight_g)
+dropterm(gm3, test = "Chisq", sorted = TRUE)
+gm4 <- update(gm3,.~.-Height_mm)
+dropterm(gm4, test = "Chisq", sorted = TRUE)
+gm5 <- update(gm4,.~.-Sex)
+dropterm(gm5, test = "Chisq", sorted = TRUE)
+gm6 <- update(gm5,.~.-Viscera_weight_g)
+dropterm(gm6, test = "Chisq", sorted = TRUE)
+gm7 <- update(gm6,.~.-Diameter_mm)
+dropterm(gm7, test = "Chisq", sorted = TRUE)
+gm8 <- update(gm7,.~.-Shuck_weight_g)
+dropterm(gm8, test = "Chisq", sorted = TRUE)
+gm9 <- update(gm8,.~.-Whole_weight_g )
+dropterm(gm9, test = "Chisq", sorted = TRUE)
+mods2 <- list(gm1=gm1,gm2=gm2,gm3=gm3,gm4=gm4,gm5=gm5,gm6=gm6,gm7=gm7,gm8=gm8,gm9=gm9)
+model.sel(mods1)
+model.sel(mods2)
+
+gm10 <- glm(Rings ~ Diameter_mm+ Whole_weight_g+ Shuck_weight_g,df,family = "poisson")
+summary(gm10)
+
+#summary(m1)
+#summary(m2)
+```
+## Unit 11 Modeling binary data
+
+### Lecture
+
+- The test-statistic can be calculated as $\sum\frac{(observed - expected)^2}{expected}$ for example: 8.329
+
+- The p-value of this test is given as Pr(X >= 8.329 test-statistic value) 
+```{r}
+pchisq(8.329,1,lower.tail = F)
+```
+
+- Odds ratio $OR = \frac{\pi_1/(1-\pi_1)}{\pi_2/(1-\pi_2)}$
+ 
+ - OR = 1 --> The two groups do not differ
+ - OR > 1( < 1) --> group 1 >(or < ) group 2
+ 
+**The odds and the odds ratio**
+
+- the odds $\frac{\pi}{(1-\pi)}$ $\pi$ is a probability. For example, if the probability to win a game is 0.75, then the odds is given as 0.75/0.25 or 3:1
+
+- Odds ratio $OR = \frac{\pi_1/(1-\pi_1)}{\pi_2/(1-\pi_2)}$
+
+- Often the log odds ratio is used: $$log(OR) = \log(\frac{\pi_1/(1-\pi_1)}{\pi_2/(1-\pi_2)})$$
+ - 1. log(OR) = 0 --> The two groups do not differ
+ 
+ - 2. log(OR) > 0(<0) --> group 1 > (or < ) group 2
+ 
+**Poisson vs. Binomial distribution**
+- Poisson is appropriate when:
+ 
+  - There is no theoretical upper limit to the number of times an "event" can occur, or observed values are far from such an upper limit(e.g.,number of birds observed in a forest plot)
+ 
+  - Counts cannot be expressed as a proportion.
+ 
+- Binomial is appropriate when:
+ 
+  - Aggregated version of many binary experiments, that is,each can be  0 or 1.
+  
+  - There is an upper limit to the number of times an "event" can occur
+  
+  - Events can be expressed as a *proportion*(number of successes/number of trials)
+  
+
+**Model for binary data**:
+
+- The probability distribution of a binary random variable $Y \in {0,1}$ with parameter $\pi$ is defined as $P(Y = 1) = \pi, P(Y = 0) = 1 - \pi$
+
+- Characteristics of the Bernoulli distribution:
+
+  - $E(Y) = \pi = P(Y = 1)$
+  
+  - $Var(Y) = \pi(1-\pi)$
+  
+**From binary to binomial data**
+
+- Binomial data is an **aggregation of binary data**
+
+- repeat the experiment with $P(Y=1) = \pi$ a  total number of n times, calculate how often a success was observed(k times)
+
+- The expected proportion of successes("success rate": k/n) has the same expectation as the success probability of a single experiment:$E(\frac{\sum^{n}_{i=1}Y}{n}) = \pi = E(Y)$
+
+**Binomial distribution**
+
+- Assigns the probability of seeking k successes out of n trials, where the success probability of a single trial is $\pi$ $P(Y = k) = (nk!) \pi ^ k (1-\pi)^{n-k}, k = 0,1,2,...,n$ In short: $Y \sim Binom(n,\pi)$ 
+
+- Characteristics of the binomial distribution:
+
+  - Mean: $E(Y) = n * \pi$  rbinom()
+  
+  - Variance：$Var(Y) = n * \pi(1-\pi)$ dbinom()
+  
+**The logistic regression model**
+- $\log(\frac{\pi_i}{1-\pi_i}) = \beta_0 + \beta_1x_i^{(1)} + \beta_2x_i^{(2)} + \ldots + \beta_px_i^{(p)}$
+
+- The link function is called the **logistic link**
+
+- The family is **binomial** glm(...,family = binomial)
+
+- Need to give the function *two numbers for the response*:
+ 
+ - the number of successes, encoded as 1
+ 
+ - the number of failures, encoded as 0 
+ 
+ example:
+```{r}
+beetle.glm <- glm(cbind(Number_killed,Number_survived)~Dose,data = beetle,family = binomial)
+
+# Analysis of Deviance
+anova(beetle.glm,test = "Chisq") #test = "Chisq"
+```
+- Overdispersion
+
+  - **The variance is determined by the mean**
+  
+  - "Overdispersion" means **"extra variability"**(larger than the model predicts or allows)
+  
+  - Overdispersion leads to **too small p-values**
+  
+  - Can be detected by looking at the **residual deviance**: Residual deviance >> df --> Overdispersion, Residual deviance << df --> underdispersion
+  
+  - Account for overdispersion by switching to a *quasibinomial* model,which esimates the dispersion parameter separately
+```{r}
+beetle.glm <- glm(cbind(Number_killed,Number_survived)~Dose,data = beetle,family = quasibinomial)
+```
+  
+  - For non-aggregated data, the residual deviance vs.df relation **cannot be used to detect overdispersion**, because for a single binary(0/1) variable it is impossible to estimate a variance, thus it is also impossible to say if the variance is too high/too low.
+  
+  - Overdispersion does not apply to binary data
+  
+### Practical - Eagle owls
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(ggplot2)
+
+df <- read_csv("~/Library/CloudStorage/GoogleDrive-shangyu1224@gmail.com/我的云端硬盘/UZH/SEMESTER 4/BIO144 Data analyse in Biology/all_datasets_bio144/EAGLES.CSV")
+
+options(na.actions = "na.fail")
+
+#glimpse(df)
+
+
+# Step 2: Create a contingency table
+cont_table <- xtabs(Count ~ Sex + Prey, data = df)
+
+# Step 3: Perform chi-square test
+chi_square_test <- chisq.test(cont_table)
+
+# Step 4: Print the contingency table and test results
+print(cont_table)
+print(chi_square_test)
+
+
+#Make a bar chart that shows the number of each prey type found, for each sex.
+ggplot(df,aes(x=Prey,y=Count,color = Sex))+
+  geom_bar(stat = "identity",position = "dodge")
+
+```
+
+## Unit 12 Measurement Error
+
+### Lecture 
+
+**Sources of measurement error**
+- **Measurement imprecision** in the field or in the lab
+
+- Errors due to **incomplete or inaccurate observations**
+
+- Rounding error,digit preference
+
+- **Classification error**
+
+**Classical measurement error**
+
+- the classical ME model is ** $w_i = x_i + u_i$ **, $x_i$ is correct but unobserved variable and $w_i$ the observed variable with error $u_i$
+
+**Triple Whammy of Measurement Error**
+- **Biased** parameter estimates
+
+- **Loss of power ** to detect signals
+
+- **Masks important features** of the data 
+
+**How to correct for ME?**
+- need an *error model* and knowledge of the **error model parameters**
+
+- Take repeated measurements to estimate the error variance 
+ 
+**Practical Selftest Measurement error**
+```{r}
+names(dd) <- c("Timestamp", "ID", "Gender", "Weight",
+  "Handedness", "Pref_Reaction_time_1",
+  "Pref_Reaction_time_2", "Pref_Reaction_time_3",
+  "Pref_Reaction_time_4", "Pref_Reaction_time_5",
+  "Pref_Reaction_time", "Nonpref_Reaction_time_ave",
+  "Verbal_memory_score", "Number_memory_score",
+  "Visual_memory_score", "Random_number")
+
+dd_filtered <- dd %>%
+
+  filter(Pref_Reaction_time_ave > 50,
+
+         Pref_Reaction_time_ave < 500)
+```
+
+
+  
+  
